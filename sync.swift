@@ -5,10 +5,10 @@ import Foundation
 struct info 
 {
 	var input = String()
+	var error: Int32 = 0
 	var readlock = pthread_mutex_t()
 	var enterlock = pthread_mutex_t()
 	var exitlock = pthread_mutex_t()
-	var closelock = pthread_mutex_t()	
 }
 
 //read commands from standard input
@@ -35,25 +35,36 @@ func readStdin() -> String
 func print(input: Arg) -> UnsafeMutableRawPointer?
 {
 	//waits for parent to read stdin
-	pthread_mutex_lock(&i.readlock)
+	if i.error != pthread_mutex_lock(&i.readlock)
+	{
+		print("Mutex failed to lock")
+	}
 	//check the structure contains something before unwrapping
 	if input != nil 
 	{
 		let x = input!.load(as: info.self)
 		print(x.input)
 	}
-	pthread_mutex_unlock(&i.readlock)
+	if i.error != pthread_mutex_unlock(&i.readlock)
+	{
+		print("Mutex failed to unlock")
+	}
 	
 	//allow the parent continue
-	pthread_mutex_unlock(&i.enterlock)
-	
+	if i.error != pthread_mutex_unlock(&i.enterlock)
+	{
+		print("Mutex failed to unlock")
+	}
 	//waiting for notification that the user has pressed enter
-	pthread_mutex_lock(&i.exitlock)
+	if i.error != pthread_mutex_lock(&i.exitlock)
+	{
+		print("Mutex failed to lock")
+	}
 	print("Child thread is exiting")
-	pthread_mutex_unlock(&i.exitlock)
-	
-	//allow the parent to continue
-	pthread_mutex_unlock(&i.closelock)
+	if i.error != pthread_mutex_unlock(&i.exitlock)
+	{
+		print("Mutex failed to unlock")
+	}
 	pthread_exit(nil)
 }
 
@@ -61,36 +72,68 @@ func print(input: Arg) -> UnsafeMutableRawPointer?
 var i = info()
 
 //initialising all the mutexes needed for future use
-pthread_mutex_init(&i.readlock, nil)
-pthread_mutex_init(&i.enterlock, nil)
-pthread_mutex_init(&i.exitlock, nil)
-pthread_mutex_init(&i.closelock, nil)
+if i.error != pthread_mutex_init(&i.readlock, nil)
+{
+	print("Thread not initialised")
+}
+if i.error != pthread_mutex_init(&i.enterlock, nil)
+{
+	print("Thread not initialised")
+}
+if i.error != pthread_mutex_init(&i.exitlock, nil)
+{
+	print("Thread not initialised")
+}
 
 //locking all the mutexes
-pthread_mutex_lock(&i.readlock)
-pthread_mutex_lock(&i.enterlock)
-pthread_mutex_lock(&i.exitlock)
-pthread_mutex_lock(&i.closelock)
+if i.error != pthread_mutex_lock(&i.readlock)
+{
+	print("Mutex failed to lock")
+}
+if i.error != pthread_mutex_lock(&i.enterlock)
+{
+	print("Mutex failed to lock")
+}
+if i.error != pthread_mutex_lock(&i.exitlock)
+{
+	print("Mutex failed to lock")
+}
 
 //create the thread inside readlock and read stdin
-pthread_create(&t, nil, print, &i)
+if i.error != pthread_create(&t, nil, print, &i)
+{
+	print("Failed to create thread")
+}
+
 i.input = readStdin()
 //release readlock for child to use input
-pthread_mutex_unlock(&i.readlock)
-
+if i.error != pthread_mutex_unlock(&i.readlock)
+{
+	print("Mutex failed to unlock")
+}
 //waiting for child to print buffer
-pthread_mutex_lock(&i.enterlock)
+if i.error != pthread_mutex_lock(&i.enterlock)
+{
+	print("Mutex failed to lock")
+}
 print("Please press Enter")
 repeat 
 {
 	i.input = readStdin()
 } while i.input != ""
-pthread_mutex_unlock(&i.enterlock)
+if i.error != pthread_mutex_unlock(&i.enterlock)
+{
+	print("Mutex failed to unlock")
+}
 //allows child to continue
-pthread_mutex_unlock(&i.exitlock)
+if i.error != pthread_mutex_unlock(&i.exitlock)
+{
+	print("Mutex failed to unlock")
+}
 
 //waiting for the child to exit
-pthread_mutex_lock(&i.closelock)
+if i.error != pthread_join(t, nil)
+{
+	print("pthread join failed")
+}
 print("Child thread is gone")
-pthread_mutex_unlock(&i.closelock)
-sleep(1)
