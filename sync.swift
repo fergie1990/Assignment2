@@ -137,3 +137,16 @@ if i.error != pthread_join(t, nil)
 	print("pthread join failed")
 }
 print("Child thread is gone")
+
+if i.error != pthread_mutex_destroy(&i.readlock)
+{
+	print("Failed to destroy mutex")
+}
+if i.error != pthread_mutex_destroy(&i.enterlock)
+{
+	print("Failed to destroy mutex")
+}
+if i.error != pthread_mutex_destroy(&i.exitlock)
+{
+	print("Failed to destroy mutex")
+}
