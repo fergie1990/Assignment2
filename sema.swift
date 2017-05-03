@@ -4,11 +4,17 @@ import Foundation
 //and the mutexes to be used by both threads
 struct sem 
 {
-	var input = String()
 	var semval: Int32 = 1
 	var error: Int32 = 0
 	var semlock = pthread_mutex_t()
 	var cond = pthread_cond_t()
+}
+
+func initialise(val: Int32) -> sem
+{
+	var s = sem()
+	s.semval = val
+	return s
 }
 
 func procure(semaphore: sem)
@@ -47,8 +53,7 @@ func vacate(semaphore: sem)
 	}
 }
 
-//***Main***
-var s = sem()
+var s: sem = initialise(val: 1)
 //initialising the mutex
 if s.error != pthread_mutex_init(&s.semlock, nil)
 {
@@ -59,4 +64,3 @@ if s.error != pthread_cond_init(&s.cond, nil)
 {
 	print("Thread condition not initialised")
 }
-
