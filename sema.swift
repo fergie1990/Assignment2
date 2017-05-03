@@ -17,6 +17,19 @@ func initialise(val: Int32) -> sem
 	return s
 }
 
+func destruct()
+{
+	if s.error != pthread_mutex_destroy(&s.semlock)
+	{
+		print("Failed to destroy mutex")
+	}
+	if s.error != pthread_cond_destroy(&s.cond)
+	{
+		print("Failed to destroy condition variable")
+	}
+	free(&s)
+}
+
 func procure(semaphore: sem)
 {
 	//critical section
