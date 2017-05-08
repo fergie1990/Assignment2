@@ -4,76 +4,78 @@ import Foundation
 //and the mutexes to be used by both threads
 struct sem 
 {
-	var semval: Int32 = 1
+	var semval = Int32()
 	var error: Int32 = 0
 	var semlock = pthread_mutex_t()
 	var cond = pthread_cond_t()
+	var input = String()
 }
 
 func initialise(val: Int32) -> sem
 {
 	var s = sem()
+	if s.error != pthread_mutex_init(&s.semlock, nil)
+	{
+		print("Mutex not initialised")
+	}
+	//initialising wait condition
+	if s.error != pthread_cond_init(&s.cond, nil)
+	{
+		print("Thread condition not initialised")
+	}
 	s.semval = val
 	return s
 }
 
-func destruct()
+func destruct(sema: inout sem)
 {
-	if s.error != pthread_mutex_destroy(&s.semlock)
+	if sema.error != pthread_mutex_destroy(&sema.semlock)
 	{
 		print("Failed to destroy mutex")
 	}
-	if s.error != pthread_cond_destroy(&s.cond)
+	if sema.error != pthread_cond_destroy(&sema.cond)
 	{
 		print("Failed to destroy condition variable")
 	}
 	free(&s)
 }
 
-func procure(semaphore: sem)
+func procure(sema: inout sem)
 {
+	//print("produre: ", sema.semval)
 	//critical section
-	if s.error != pthread_mutex_lock(&s.semlock)
+	if sema.error != pthread_mutex_lock(&sema.semlock)
 	{
 		print("Mutex failed to lock")
 	}
-	while(s.semval <= 0)
+	while(sema.semval <= 0)
 	{
-		pthread_cond_wait(&s.cond, &s.semlock)
+		pthread_cond_wait(&sema.cond, &sema.semlock)
 	}
-	s.semval -= 1
+	sema.semval -= 1
+	//print("val minus 1: ", sema.semval)
 	//end critical section
-	if s.error != pthread_mutex_unlock(&s.semlock)
+	if sema.error != pthread_mutex_unlock(&sema.semlock)
 	{
 		print("Mutex failed to unlock")
 	}
 }
 
-func vacate(semaphore: sem)
+func vacate(sema: inout sem)
 {
+	//print("vacate: ", sema.semval)
 	//critical section
-	if s.error != pthread_mutex_lock(&s.semlock)
+	if sema.error != pthread_mutex_lock(&sema.semlock)
 	{
 		print("Mutex failed to lock")
 	}
-	s.semval += 1
-	pthread_cond_signal(&s.cond)
+	sema.semval += 1
+	//print("val plus 1: ", sema.semval)
+	pthread_cond_signal(&sema.cond)
 	
 	//end critical section
-	if s.error != pthread_mutex_unlock(&s.semlock)
+	if sema.error != pthread_mutex_unlock(&sema.semlock)
 	{
 		print("Mutex failed to unlock")
 	}
-}
-
-var s: sem = initialise(val: 1)
-//initialising the mutex
-if s.error != pthread_mutex_init(&s.semlock, nil)
-{
-	print("Mutex not initialised")
-}
-//initialising wait condition
-if s.error != pthread_cond_init(&s.cond, nil)
-{
-	print("Thread condition not initialised")
 }
