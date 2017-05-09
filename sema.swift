@@ -8,7 +8,6 @@ struct sem
 	var error: Int32 = 0
 	var semlock = pthread_mutex_t()
 	var cond = pthread_cond_t()
-	var input = String()
 }
 
 func initialise(val: Int32) -> sem
@@ -37,7 +36,7 @@ func destruct(sema: inout sem)
 	{
 		print("Failed to destroy condition variable")
 	}
-	free(&s)
+	free(&sema)
 }
 
 func procure(sema: inout sem)
