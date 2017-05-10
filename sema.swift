@@ -1,7 +1,7 @@
 import Foundation
 
 //this structure is used to establish variables
-//and the mutexes to be used by both threads
+//and the mutexes to be used by the semaphore
 struct sem 
 {
 	var semval = Int32()
@@ -9,72 +9,63 @@ struct sem
 	var semlock = pthread_mutex_t()
 	var cond = pthread_cond_t()
 }
-
+//takes the return value from a function and prints
+//the error code if one occurs
+func errorHandler(error: Int32)
+{
+	if error != 0 
+	{
+		print("Program failed with error: ", error)	
+		exit(EXIT_FAILURE)
+	}
+	return
+}
+//initialises the semaphore with the input 
+//value, the mutex and the cond variable
 func initialise(val: Int32) -> sem
 {
 	var s = sem()
-	if s.error != pthread_mutex_init(&s.semlock, nil)
-	{
-		print("Mutex not initialised")
-	}
-	//initialising wait condition
-	if s.error != pthread_cond_init(&s.cond, nil)
-	{
-		print("Thread condition not initialised")
-	}
+	s.error = pthread_mutex_init(&s.semlock, nil)
+	errorHandler(error: s.error)
+	s.error = pthread_cond_init(&s.cond, nil)
+	errorHandler(error: s.error)
 	s.semval = val
 	return s
 }
-
+//destroys the mutexes and cond variables used
 func destruct(sema: inout sem)
 {
-	if sema.error != pthread_mutex_destroy(&sema.semlock)
-	{
-		print("Failed to destroy mutex")
-	}
-	if sema.error != pthread_cond_destroy(&sema.cond)
-	{
-		print("Failed to destroy condition variable")
-	}
-	free(&sema)
+	sema.error = pthread_mutex_destroy(&sema.semlock)
+	errorHandler(error: sema.error)
+	sema.error = pthread_cond_destroy(&sema.cond)
+	errorHandler(error: sema.error)
 }
-
+//obtains the semaphore
 func procure(sema: inout sem)
 {
-	//print("produre: ", sema.semval)
 	//critical section
-	if sema.error != pthread_mutex_lock(&sema.semlock)
-	{
-		print("Mutex failed to lock")
-	}
+	sema.error = pthread_mutex_lock(&sema.semlock)
+	errorHandler(error: sema.error)
 	while(sema.semval <= 0)
 	{
-		pthread_cond_wait(&sema.cond, &sema.semlock)
+		sema.error = pthread_cond_wait(&sema.cond, &sema.semlock)
+		errorHandler(error: sema.error)
 	}
 	sema.semval -= 1
-	//print("val minus 1: ", sema.semval)
 	//end critical section
-	if sema.error != pthread_mutex_unlock(&sema.semlock)
-	{
-		print("Mutex failed to unlock")
-	}
+	sema.error = pthread_mutex_unlock(&sema.semlock)
+	errorHandler(error: sema.error)
 }
-
+//releases the semaphore
 func vacate(sema: inout sem)
 {
-	//print("vacate: ", sema.semval)
 	//critical section
-	if sema.error != pthread_mutex_lock(&sema.semlock)
-	{
-		print("Mutex failed to lock")
-	}
+	sema.error = pthread_mutex_lock(&sema.semlock)
+	errorHandler(error: sema.error)
 	sema.semval += 1
-	//print("val plus 1: ", sema.semval)
-	pthread_cond_signal(&sema.cond)
-	
+	sema.error = pthread_cond_signal(&sema.cond)
+	errorHandler(error: sema.error)
 	//end critical section
-	if sema.error != pthread_mutex_unlock(&sema.semlock)
-	{
-		print("Mutex failed to unlock")
-	}
+	sema.error = pthread_mutex_unlock(&sema.semlock)
+	errorHandler(error: sema.error)
 }

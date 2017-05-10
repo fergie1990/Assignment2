@@ -39,6 +39,7 @@ func print(input: Arg) -> UnsafeMutableRawPointer?
 	{
 		print("Mutex failed to lock")
 	}
+	
 	//check the structure contains something before unwrapping
 	if input != nil 
 	{
