@@ -4,81 +4,125 @@ import Foundation
 //and initialise the semaphores needed
 struct info
 {
-	var s = initialise(val: 1)
-	var n = initialise(val: 1)
-	var e = initialise(val: 1)
-	var input = String()	
+	var bufferSize = Int32()
+	var minFillLevel = Int32() 
+	var s = sem()
+	var n = sem()
+	var e = sem()
+	var buffer = [UInt16] ()
+	var count: Int = 0
 	var error: Int32 = 0
-}
-
-//read commands from standard input
-func readStdin() -> String
-{
-	let input: String? = readLine()
-	var tmp: String = ""
-	//make sure input is not nil before unwrapping
-	if input != nil {
-	 tmp = input!
- 	}
-	return tmp
 }
 
 //this defines the thread and the type of Arg
 //for either macOS or linux/Ubuntu
 #if os(macOS)
-	var t: pthread_t? = nil
+	var t1: pthread_t? = nil
+	var t2: pthread_t? = nil
 	typealias Arg = UnsafeMutableRawPointer
 #else
-	var t: pthread_t = pthread_t()
+	var t1: pthread_t = pthread_t()
+	var t2: pthread_t = pthread_t()
 	typealias Arg = UnsafeMutableRawPointer?
 #endif
 
-//this function is used to print the buffer with the child thread
-func print(input: Arg) -> UnsafeMutableRawPointer?
+func readNum() -> UInt16
 {
-	//waits for parent to read stdin
-	procure(sema: &i.s)
-	//check the structure contains something before unwrapping
-	if input != nil 
+	var randomNum: UInt16 = 0
+	let fd = open("/dev/random", O_RDONLY)
+	if fd != -1 
 	{
-		let x = input!.load(as: info.self)
-		print(x.input)
+		let size = read(fd, &randomNum, MemoryLayout<UInt16>.size)
+		if size != MemoryLayout<UInt16>.size
+		{
+			print("Read failed with error:", errno)
+			exit(EXIT_FAILURE)
+		}
 	}
-	//allow the parent continue
-	vacate(sema: &i.s)
-	vacate(sema: &i.n)
-	//waiting for notification that the user has pressed enter
-	procure(sema: &i.e)
-	print("Child thread is exiting")
-	pthread_exit(nil)
+	return randomNum
+}
+
+func constructor(size: Int32, fill: Int32) -> info
+{
+	var i = info()
+	i.bufferSize = size
+	i.minFillLevel = fill
+	i.s = initialise(val: 1)
+	i.n = initialise(val: 0)
+	i.e = initialise(val: size)
+	return i
+}
+
+func clean()
+{
+	//clean up semaphores
+	destruct(sema: &i.s)
+	destruct(sema: &i.n)
+	destruct(sema: &i.e)
+}
+
+func put_buffer(val: UInt16)
+{
+	i.buffer.append(val)
+}
+
+func get_buffer() -> UInt16
+{
+	let val = i.buffer.remove(at:0)
+	return val
+}
+
+//produces a random number and inserts it in the buffer
+func producer(input: Arg) -> UnsafeMutableRawPointer?
+{
+	while(true)
+	{
+		//produce
+		let rval = readNum()
+		procure(sema: &i.e)
+		//print("procure e")
+		procure(sema: &i.s)
+		print("append")
+		print(rval)
+		//append
+		put_buffer(val: rval)
+		vacate(sema: &i.s)
+		//print("vacate s")
+		vacate(sema: &i.n)
+		//print("vacate n")
+		
+	}
+}
+
+//takes an element from the buffer and prints it
+func consumer(input: Arg) -> UnsafeMutableRawPointer?
+{
+	while(true)
+	{
+		procure(sema: &i.n)
+		//print("procure n")
+		procure(sema: &i.s)
+		print("take")
+		//take
+		let bval = get_buffer()
+		vacate(sema: &i.s)
+		//print("vacate s")
+		vacate(sema: &i.e)
+		//print("vacate e")
+		//consume
+		print(bval)
+	}
 }
 
 //***Main***
-var i = info()
-//obtain all semaphores
-procure(sema: &i.s)
-procure(sema: &i.n)
-procure(sema: &i.e)
+var i = constructor(size: 5, fill: 0)
 //create the thread inside critical section and read stdin
-i.error = pthread_create(&t, nil, print, &i)
+i.error = pthread_create(&t1, nil, producer, &i)
 errorHandler(error: i.error)
-i.input = readStdin()
-//signal child to use input
-vacate(sema: &i.s)
-//waiting for child to print buffer
-procure(sema: &i.n)
-print("Please press Enter")
-repeat 
-{
-	i.input = readStdin()
-} while i.input != ""
-//allow child to continue
-vacate(sema: &i.e)
-//waiting for the child to exit
-i.error = pthread_join(t, nil)
+i.error = pthread_create(&t2, nil, consumer, &i)
 errorHandler(error: i.error)
-print("Child thread is gone")
-//clean up semaphores
-destruct(sema: &i.s)
-destruct(sema: &i.n)
-destruct(sema: &i.e)
+i.error = pthread_join(t1, nil)
+errorHandler(error: i.error)
+i.error = pthread_join(t2, nil)
+errorHandler(error: i.error)
+clean()
