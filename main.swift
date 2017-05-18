@@ -87,7 +87,7 @@ func consumer(input: Arg) -> UnsafeMutableRawPointer?
 	while(true)
 	{
 		procure(sema: &i.n)
-		//sleep(3)
+		sleep(3)
 		//print("procure n", i.n.semval)
 		procure(sema: &i.s)
 		//print("procure s take")
@@ -105,13 +105,30 @@ func consumer(input: Arg) -> UnsafeMutableRawPointer?
 }
 
 //***Main***
-var i = constructor(size: 5, fill: 0)
-var rval = [UInt16]()
+var i = info()
+let arguments = CommandLine.arguments
+var bs: Int32 = 5
+var mfl: Int32 = 0
 
-// print(i.s.semval)
-// print(i.n.semval)
-// print(i.e.semval)
-while(true)
+if arguments.count == 3
+{
+	if let arg1 = Int32(arguments[1]) {
+		bs = arg1
+	}
+	if let arg2 = Int32(arguments[2]) {
+		mfl = arg2
+	}
+}
+else if arguments.count != 1 && arguments.count != 3
+{
+	print("Incorrect amount of arguments")
+	exit(EXIT_FAILURE)
+}
+i = constructor(size: bs, fill: mfl)
+
+var j: Int32 = 25
+var rval = readNum(val: j)
+while(!rval.isEmpty)
 {
 	//create the thread inside critical section and read stdin
 	i.error = pthread_create(&t, nil, consumer, &i)
@@ -124,13 +141,12 @@ while(true)
 	//append
 	//sleep(1)
 	//print(i.buffer.count)
-	if(Int32(i.buffer.count) <= i.minFillLevel)
+	if !rval.isEmpty
 	{
-		rval += readNum(val: i.bufferSize - i.buffer.count)
-		//print("rval", rval)
+		put_buffer(val: rval.remove(at:0))
 	}
-	put_buffer(val: rval.remove(at:0))
-	print("buffer", i.buffer)
+	print(i.buffer)
+	//print("buffer", i.buffer)
 	vacate(sema: &i.s)
 	//print("vacate s")
 	vacate(sema: &i.n)
@@ -140,4 +156,4 @@ while(true)
 
 i.error = pthread_join(t, nil)
 errorHandler(error: i.error)
-clean()
+//clean()
