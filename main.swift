@@ -9,8 +9,10 @@ struct info
 	var s = sem()
 	var n = sem()
 	var e = sem()
+	var p = sem()
 	var buffer = [UInt16] ()
-	var count: Int = 0
+	var input: String = ""
+	var inputval = Int32()
 	var error: Int32 = 0
 }
 
@@ -23,6 +25,18 @@ struct info
 	var t: pthread_t = pthread_t()
 	typealias Arg = UnsafeMutableRawPointer?
 #endif
+
+//read commands from standard input
+func readStdin() -> String
+{
+	let input: String? = readLine()
+	var tmp: String = ""
+	
+	if input != nil {
+	 tmp = input!
+ 	}
+	return tmp
+}
 
 func readNum(val: Int32) -> [UInt16]
 {
@@ -57,8 +71,9 @@ func constructor(size: Int32, fill: Int32) -> info
 	i.bufferSize = size
 	i.minFillLevel = fill
 	i.s = initialise(val: 1)
-	i.n = initialise(val: fill)
+	i.n = initialise(val: 0)
 	i.e = initialise(val: size)
+	i.p = initialise(val: 1)
 	return i
 }
 
@@ -68,6 +83,7 @@ func clean()
 	destruct(sema: &i.s)
 	destruct(sema: &i.n)
 	destruct(sema: &i.e)
+	destruct(sema: &i.p)
 }
 
 func put_buffer(val: UInt16)
@@ -84,10 +100,17 @@ func get_buffer() -> UInt16
 //takes an element from the buffer and prints it
 func consumer(input: Arg) -> UnsafeMutableRawPointer?
 {
+	while i.input == ""
+	{
+	}
 	while(true)
 	{
+		if (i.input == "exit")
+		{
+			break
+		}
 		procure(sema: &i.n)
-		sleep(3)
+		//sleep(3)
 		//print("procure n", i.n.semval)
 		procure(sema: &i.s)
 		//print("procure s take")
@@ -95,13 +118,22 @@ func consumer(input: Arg) -> UnsafeMutableRawPointer?
 		//take
 		let bval = get_buffer()
 		print(bval)
+		i.inputval -= 1
+		if i.inputval == 0
+		{
+			vacate(sema: &i.p)
+			print("vacate p", i.p.semval)
+		}
+		
+		
 		vacate(sema: &i.s)
 		//print("vacate s")
 		vacate(sema: &i.e)
 		//print("vacate e", i.e.semval)
 		//consume
-		
 	}
+	print("child exiting")
+	pthread_exit(nil)
 }
 
 //***Main***
@@ -109,7 +141,7 @@ var i = info()
 let arguments = CommandLine.arguments
 var bs: Int32 = 5
 var mfl: Int32 = 0
-
+var inputval: Int32 = 0
 if arguments.count == 3
 {
 	if let arg1 = Int32(arguments[1]) {
@@ -125,35 +157,46 @@ else if arguments.count != 1 && arguments.count != 3
 	exit(EXIT_FAILURE)
 }
 i = constructor(size: bs, fill: mfl)
-
-var j: Int32 = 25
-var rval = readNum(val: j)
-while(!rval.isEmpty)
+i.error = pthread_create(&t, nil, consumer, &i)
+errorHandler(error: i.error)
+while i.input != "exit" 
 {
-	//create the thread inside critical section and read stdin
-	i.error = pthread_create(&t, nil, consumer, &i)
-	errorHandler(error: i.error)
-	//produce
-	procure(sema: &i.e)
-	//print("procure e", i.e.semval)
-	procure(sema: &i.s)
-	//print("procure s append")
-	//append
-	//sleep(1)
-	//print(i.buffer.count)
-	if !rval.isEmpty
+	procure(sema: &i.p)
+	print("procure p", i.p.semval)
+	print("please enter the amount of numbers you want to read")
+	i.input = readStdin()
+	if i.input == "exit"
 	{
-		put_buffer(val: rval.remove(at:0))
+		break
 	}
-	print(i.buffer)
-	//print("buffer", i.buffer)
-	vacate(sema: &i.s)
-	//print("vacate s")
-	vacate(sema: &i.n)
-	//print("vacate n", i.n.semval)
+	if let j = Int32(i.input) {
+		i.inputval = j
+		print("inputval", i.inputval)
+	}
+	var rval = readNum(val: i.inputval)
+	while(!rval.isEmpty)
+	{
+		//produce
+		procure(sema: &i.e)
+		//print("procure e", i.e.semval)
+		procure(sema: &i.s)
+		//print("procure s append")
+		//append
+		//sleep(1)
+		//print(i.buffer.count)
+		if !rval.isEmpty
+		{
+			put_buffer(val: rval.remove(at:0))
+		}
+		//print(i.buffer)
+		//print("buffer", i.buffer)
+		vacate(sema: &i.s)
+		//print("vacate s")
+		vacate(sema: &i.n)
+		//print("vacate n", i.n.semval)
+	}
 }
-
-
+print("end")
 i.error = pthread_join(t, nil)
 errorHandler(error: i.error)
-//clean()
+clean()
