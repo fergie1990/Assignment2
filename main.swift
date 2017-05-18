@@ -12,7 +12,7 @@ struct info
 	var p = sem()
 	var buffer = [UInt16] ()
 	var input: String = ""
-	var inputval = Int32()
+	var inputval: Int32 = 0
 	var error: Int32 = 0
 }
 
@@ -105,34 +105,39 @@ func consumer(input: Arg) -> UnsafeMutableRawPointer?
 	}
 	while(true)
 	{
-		if (i.input == "exit")
+		procure(sema: &i.p)
+		//print("procure p", i.p.semval)
+		if i.input == "exit"
 		{
 			break
 		}
-		procure(sema: &i.n)
-		//sleep(3)
-		//print("procure n", i.n.semval)
-		procure(sema: &i.s)
-		//print("procure s take")
-		//sleep(1)
-		//take
-		let bval = get_buffer()
-		print(bval)
-		i.inputval -= 1
-		if i.inputval == 0
+		vacate(sema: &i.p)
+		//print("vacate p", i.p.semval)
+		while i.inputval > 0
 		{
-			vacate(sema: &i.p)
-			print("vacate p", i.p.semval)
+			procure(sema: &i.n)
+			//sleep(3)
+			//print("procure n", i.n.semval)
+			procure(sema: &i.s)
+			//print("procure s take")
+			//sleep(1)
+			//take
+			let bval = get_buffer()
+			print(bval)
+			i.inputval -= 1
+			// if i.inputval == 0
+			// {
+			// 	vacate(sema: &i.p)
+			// 	print("vacate p", i.p.semval)
+			// }
+			vacate(sema: &i.s)
+			//print("vacate s")
+			vacate(sema: &i.e)
+			//print("vacate e", i.e.semval)
+			//consume
 		}
-		
-		
-		vacate(sema: &i.s)
-		//print("vacate s")
-		vacate(sema: &i.e)
-		//print("vacate e", i.e.semval)
-		//consume
 	}
-	print("child exiting")
+	//print("child exiting")
 	pthread_exit(nil)
 }
 
@@ -161,17 +166,24 @@ i.error = pthread_create(&t, nil, consumer, &i)
 errorHandler(error: i.error)
 while i.input != "exit" 
 {
-	procure(sema: &i.p)
-	print("procure p", i.p.semval)
-	print("please enter the amount of numbers you want to read")
-	i.input = readStdin()
-	if i.input == "exit"
+	if i.inputval == 0 
 	{
-		break
-	}
-	if let j = Int32(i.input) {
-		i.inputval = j
-		print("inputval", i.inputval)
+		procure(sema: &i.p)
+		//print("procure p", i.p.semval)
+		print("please enter the amount of numbers you want to read")
+		i.input = readStdin()
+		if i.input == "exit"
+		{
+			vacate(sema: &i.p)
+			//print("vacate p", i.p.semval)
+			break
+		}
+		if let j = Int32(i.input) {
+			i.inputval = j
+			//print("inputval", i.inputval)
+		}
+		vacate(sema: &i.p)
+		//print("vacate p", i.p.semval)
 	}
 	var rval = readNum(val: i.inputval)
 	while(!rval.isEmpty)
@@ -196,7 +208,7 @@ while i.input != "exit"
 		//print("vacate n", i.n.semval)
 	}
 }
-print("end")
+//print("end")
 i.error = pthread_join(t, nil)
 errorHandler(error: i.error)
 clean()
