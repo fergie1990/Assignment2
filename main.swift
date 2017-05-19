@@ -26,6 +26,15 @@ struct info
 	typealias Arg = UnsafeMutableRawPointer?
 #endif
 
+//checks if a string is numeric
+extension String 
+{
+    var isInt: Bool 
+		{
+        return Int(self) != nil
+    }
+}
+
 //read commands from standard input
 func readStdin() -> String
 {
@@ -155,19 +164,30 @@ var bs: Int32 = 5
 var mfl: Int32 = 0
 var inputval: Int32 = 0
 //change the default values if CommandLine arguments are used
-if arguments.count == 3
-{
-	if let arg1 = Int32(arguments[1]) {
-		bs = arg1
-	}
-	if let arg2 = Int32(arguments[2]) {
-		mfl = arg2
-	}
-}
-else if arguments.count != 1 && arguments.count != 3
+if arguments.count != 1 && arguments.count != 3
 {
 	print("Incorrect amount of arguments")
 	exit(EXIT_FAILURE)
+}
+else if arguments.count == 3
+{
+	if arguments[1].isInt && arguments[2].isInt
+	{
+		print("test1")
+		if let arg1 = Int32(arguments[1])
+	 	{
+			bs = arg1
+		}
+		if let arg2 = Int32(arguments[2]) 
+		{
+			mfl = arg2
+		}
+	}
+	else
+	{
+		print("Please enter two integers")
+		exit(EXIT_FAILURE)
+	}
 }
 i = constructor(size: bs, fill: mfl)
 i.error = pthread_create(&t, nil, consumer, &i)
