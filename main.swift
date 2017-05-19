@@ -38,6 +38,8 @@ func readStdin() -> String
 	return tmp
 }
 
+//reads the specified amount of random numbers
+//and returns them in an array
 func readNum(val: Int32) -> [UInt16]
 {
 	var randomNum: UInt16 = 0
@@ -61,10 +63,11 @@ func readNum(val: Int32) -> [UInt16]
 			count += 1
 		}
 	}
-	//print("tmpBuffer:", tmpBuffer)
+	close(fd)
 	return tmpBuffer
 }
 
+//initialise values based on command line arguments
 func constructor(size: Int32, fill: Int32) -> info
 {
 	var i = info()
@@ -77,27 +80,33 @@ func constructor(size: Int32, fill: Int32) -> info
 	{
 	i.minFillLevel = (fill * -1) + 1
 	}
+	//ensure mutual exclusion when accessign the buffer
 	i.s = initialise(val: 1)
+	//ensure min fill level is respected
 	i.n = initialise(val: i.minFillLevel)
+	//ensure max buffer size is respected
 	i.e = initialise(val: size)
+	//ensure sync between theads when detecting exit command
 	i.p = initialise(val: 1)
 	return i
 }
 
+//cleans up semaphores
 func clean()
 {
-	//clean up semaphores
 	destruct(sema: &i.s)
 	destruct(sema: &i.n)
 	destruct(sema: &i.e)
 	destruct(sema: &i.p)
 }
 
+//puts one value on the end of the buffer
 func put_buffer(val: UInt16)
 {
 	i.buffer.append(val)
 }
 
+//takes one value off the front of the buffer
 func get_buffer() -> UInt16
 {
 	let val = i.buffer.remove(at:0)
@@ -107,49 +116,45 @@ func get_buffer() -> UInt16
 //takes an element from the buffer and prints it
 func consumer(input: Arg) -> UnsafeMutableRawPointer?
 {
+	//waiting for user input
 	while i.input == ""
 	{
 	}
 	while(true)
 	{
+		//checking for exit command
 		procure(sema: &i.p)
-		//print("procure p", i.p.semval)
 		if i.input == "exit"
 		{
 			break
 		}
 		vacate(sema: &i.p)
-		//print("vacate p", i.p.semval)
+		//only print the amount specified by the user
 		while i.inputval > 0
 		{
 			procure(sema: &i.n)
-			//sleep(2)
-			//print(i.buffer)
-			//print("procure n", i.n.semval)
 			procure(sema: &i.s)
-			//print("procure s take")
-			//sleep(1)
-			//take
+			//get the value from the buffer
 			let bval = get_buffer()
-			print(bval)
+			//convert to hex and print
+			let hex: String = String(bval, radix: 16)
+			print("Ox", hex)
 			i.inputval -= 1
 			vacate(sema: &i.s)
-			//print("vacate s")
 			vacate(sema: &i.e)
-			//print("vacate e", i.e.semval)
-			//consume
 		}
 	}
-	//print("child exiting")
 	pthread_exit(nil)
 }
 
 //***Main***
+//*Producer*
 var i = info()
 let arguments = CommandLine.arguments
 var bs: Int32 = 5
 var mfl: Int32 = 0
 var inputval: Int32 = 0
+//change the default values if CommandLine arguments are used
 if arguments.count == 3
 {
 	if let arg1 = Int32(arguments[1]) {
@@ -172,47 +177,30 @@ while i.input != "exit"
 	if i.inputval == 0 
 	{
 		procure(sema: &i.p)
-		//print("procure p", i.p.semval)
-		print("please enter the amount of numbers you want to read")
+		print("please enter a value or 'exit'")
 		i.input = readStdin()
 		if i.input == "exit"
 		{
 			vacate(sema: &i.p)
-			//print("vacate p", i.p.semval)
 			break
 		}
 		if let j = Int32(i.input) {
 			i.inputval = j
-			//print("inputval", i.inputval)
 		}
 		vacate(sema: &i.p)
-		//print("vacate p", i.p.semval)
 	}
+	//put random numbers in temp array
 	var rval = readNum(val: i.inputval)
+	//produce numbers on the buffer until specified amount is reached
 	while(!rval.isEmpty)
 	{
-		//produce
 		procure(sema: &i.e)
-		//sleep(2)
-		//print("procure e", i.e.semval)
 		procure(sema: &i.s)
-		//print("procure s append")
-		//append
-		//sleep(1)
-		//print(i.buffer.count)
-		if !rval.isEmpty
-		{
-			put_buffer(val: rval.remove(at:0))
-		}
-		//print(i.buffer)
-		//print("buffer", i.buffer)
+		put_buffer(val: rval.remove(at:0))
 		vacate(sema: &i.s)
-		//print("vacate s")
 		vacate(sema: &i.n)
-		//print("vacate n", i.n.semval)
 	}
 }
-//print("end")
 i.error = pthread_join(t, nil)
 errorHandler(error: i.error)
 clean()
