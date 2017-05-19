@@ -69,9 +69,16 @@ func constructor(size: Int32, fill: Int32) -> info
 {
 	var i = info()
 	i.bufferSize = size
-	i.minFillLevel = fill
+	if fill == 1 || fill == 0
+	{
+		i.minFillLevel = 0
+	} 
+	else 
+	{
+	i.minFillLevel = (fill * -1) + 1
+	}
 	i.s = initialise(val: 1)
-	i.n = initialise(val: 0)
+	i.n = initialise(val: i.minFillLevel)
 	i.e = initialise(val: size)
 	i.p = initialise(val: 1)
 	return i
@@ -116,7 +123,8 @@ func consumer(input: Arg) -> UnsafeMutableRawPointer?
 		while i.inputval > 0
 		{
 			procure(sema: &i.n)
-			//sleep(3)
+			//sleep(2)
+			//print(i.buffer)
 			//print("procure n", i.n.semval)
 			procure(sema: &i.s)
 			//print("procure s take")
@@ -125,11 +133,6 @@ func consumer(input: Arg) -> UnsafeMutableRawPointer?
 			let bval = get_buffer()
 			print(bval)
 			i.inputval -= 1
-			// if i.inputval == 0
-			// {
-			// 	vacate(sema: &i.p)
-			// 	print("vacate p", i.p.semval)
-			// }
 			vacate(sema: &i.s)
 			//print("vacate s")
 			vacate(sema: &i.e)
@@ -190,6 +193,7 @@ while i.input != "exit"
 	{
 		//produce
 		procure(sema: &i.e)
+		//sleep(2)
 		//print("procure e", i.e.semval)
 		procure(sema: &i.s)
 		//print("procure s append")
